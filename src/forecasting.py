@@ -12,30 +12,29 @@ def load_and_prepare_data(store_id=1, data_path='data/'):
     df = df[['Date', 'Sales']].sort_values('Date').set_index('Date')
     return df
 
-
 def create_features(df, lag_days=[1, 7, 14, 30]):
-    """Cria features de séries temporais, preenchendo NaN no futuro"""
+    """Cria features de séries temporais, preenchendo futuro com média histórica"""
     data = df.copy()
+    
+    # Preencher Sales no futuro com média histórica (evita zeros em lags/rolling)
+    historical_mean = data['Sales'][data['Sales'] > 0].mean() if (data['Sales'] > 0).any() else 0
+    data['Sales'] = data['Sales'].replace(0, historical_mean).ffill()
+    
     data['dayofweek'] = data.index.dayofweek
     data['month'] = data.index.month
     data['day'] = data.index.day
     data['is_weekend'] = (data['dayofweek'] >= 5).astype(int)
     
-    # Lags e rolling
     for lag in lag_days:
         data[f'lag_{lag}'] = data['Sales'].shift(lag)
     
     data['rolling_mean_7'] = data['Sales'].rolling(7, min_periods=1).mean()
     data['rolling_mean_30'] = data['Sales'].rolling(30, min_periods=1).mean()
     
-    # Preenche NaN no futuro com o último valor conhecido (forward fill)
-    data = data.ffill()
-    
-    # Preenche qualquer NaN restante com média global (raro)
-    data = data.fillna(data['Sales'].mean())
+    # Preenche qualquer NaN restante
+    data = data.ffill().fillna(historical_mean)
     
     return data
-
 
 def train_and_predict(store_id=1, test_days=60):
     """Treina o modelo XGBoost e retorna modelo + previsão de teste"""
