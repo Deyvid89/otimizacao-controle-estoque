@@ -69,8 +69,9 @@ costs_eoq, stock_levels_eoq = simulate_inventory(
 if costs_eoq['total_cost'] == 0 or np.isnan(costs_eoq['total_cost']):
     st.warning("EOQ inválido (holding cost = 0?). Use valor > 0 na sidebar.")
 
-# Baseline mensal - com buffer maior
-initial_stock_monthly = monthly_quantity + demand_mean * (lead_time + 7)  # buffer extra de 7 dias
+# Baseline mensal - versão robusta (pede a cada 30 dias OU quando estoque baixo)
+monthly_quantity = max(demand_mean * 30, 100)  # mínimo razoável
+initial_stock_monthly = monthly_quantity * 2 + demand_mean * (lead_time + 7)  # buffer maior
 stock = initial_stock_monthly
 total_holding = total_shortage = total_orders = 0
 stock_levels_monthly = [initial_stock_monthly]
@@ -83,9 +84,12 @@ for demand in demand_series:
         total_shortage += abs(stock)
         stock = 0
     total_holding += stock
-    if day_count % 30 == 0:
+    
+    # Pedido mensal OU quando estoque baixo (híbrido)
+    if day_count % 30 == 0 or stock <= monthly_quantity * 0.3:
         stock += monthly_quantity
         total_orders += 1
+    
     stock_levels_monthly.append(stock)
 
 costs_monthly = {
