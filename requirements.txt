@@ -1,9 +1,9 @@
-pandas==2.2.2
-numpy
+xgboost  
+pandas  
+numpy  
+scikit-learn  
+plotly  
+streamlit  
 matplotlib
-seaborn
-#prophet
-xgboost
-scikit-learn
-streamlit
-plotly
+seaborn  
+joblib
