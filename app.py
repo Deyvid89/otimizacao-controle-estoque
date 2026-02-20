@@ -66,8 +66,11 @@ costs_eoq, stock_levels_eoq = simulate_inventory(
     holding_cost_per_unit=holding_cost_day, shortage_cost_per_unit=shortage_cost, order_cost=order_cost
 )
 
-# Baseline mensal - pedido a cada 30 dias
-initial_stock_monthly = monthly_quantity + demand_mean * lead_time
+if costs_eoq['total_cost'] == 0 or np.isnan(costs_eoq['total_cost']):
+    st.warning("EOQ inválido (holding cost = 0?). Use valor > 0 na sidebar.")
+
+# Baseline mensal - com buffer maior
+initial_stock_monthly = monthly_quantity + demand_mean * (lead_time + 7)  # buffer extra de 7 dias
 stock = initial_stock_monthly
 total_holding = total_shortage = total_orders = 0
 stock_levels_monthly = [initial_stock_monthly]
@@ -80,12 +83,9 @@ for demand in demand_series:
         total_shortage += abs(stock)
         stock = 0
     total_holding += stock
-    
-    # Pedido a cada 30 dias
     if day_count % 30 == 0:
         stock += monthly_quantity
         total_orders += 1
-    
     stock_levels_monthly.append(stock)
 
 costs_monthly = {
@@ -95,6 +95,10 @@ costs_monthly = {
     'total_orders': total_orders
 }
 stock_levels_monthly = stock_levels_monthly[1:]
+
+# Aviso se rupturas altas
+if costs_monthly['total_shortage'] > 10000:
+    st.warning(f"Alta rupturas no baseline ({costs_monthly['total_shortage']:.0f}) - ajuste lead time ou holding cost para equilibrar.")
 
 # KPI cards
 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
