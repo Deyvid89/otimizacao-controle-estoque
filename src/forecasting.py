@@ -3,7 +3,6 @@ import xgboost as xgb
 from sklearn.metrics import mean_absolute_error
 
 def load_and_prepare_data(store_id=1, data_path='data/'):
-    """Carrega e prepara os dados para uma loja específica"""
     train = pd.read_csv(data_path + 'train.csv', low_memory=False, parse_dates=['Date'])
     store = pd.read_csv(data_path + 'store.csv')
     
@@ -13,52 +12,37 @@ def load_and_prepare_data(store_id=1, data_path='data/'):
     return df
 
 def create_features(df, lag_days=[1, 7, 14, 30]):
-    """Cria features de séries temporais, repetindo padrão sazonal no futuro"""
     data = df.copy()
     
-    # Média histórica para fallback
-    historical_mean = data['Sales'][data['Sales'] > 0].mean() if (data['Sales'] > 0).any() else 0
-    
-    # Preencher zeros no histórico com média
-    data['Sales'] = data['Sales'].replace(0, historical_mean).ffill()
-    
-    # Features calendário
+    # Features calendário (sempre, mesmo no futuro)
     data['dayofweek'] = data.index.dayofweek
     data['month'] = data.index.month
     data['day'] = data.index.day
     data['is_weekend'] = (data['dayofweek'] >= 5).astype(int)
     
-    # Lags e rolling no histórico
+    # Separar histórico e futuro
+    historical = data[data['Sales'] > 0].copy()
+    future = data[data['Sales'] == 0].copy()
+    
+    if not future.empty:
+        # Repetir os últimos 7 dias de Sales no futuro
+        last_7_sales = historical['Sales'].tail(7).values
+        repeated_sales = np.tile(last_7_sales, len(future) // 7 + 1)[:len(future)]
+        data.loc[future.index, 'Sales'] = repeated_sales
+    
+    # Lags e rolling agora com Sales preenchido
     for lag in lag_days:
         data[f'lag_{lag}'] = data['Sales'].shift(lag)
     
     data['rolling_mean_7'] = data['Sales'].rolling(7, min_periods=1).mean()
     data['rolling_mean_30'] = data['Sales'].rolling(30, min_periods=1).mean()
     
-    # Para o futuro: repetir o padrão dos últimos 7 dias (proxy sazonal semanal)
-    last_7_days = data.tail(7).copy()
-    future_periods = len(data) - len(df)  # quantos dias futuros foram adicionados
-    
-    if future_periods > 0:
-        repeated_pattern = pd.concat([last_7_days] * (future_periods // 7 + 1))
-        repeated_pattern = repeated_pattern.iloc[:future_periods]
-        repeated_pattern.index = data.index[-future_periods:]
-        
-        # Copiar features do padrão repetido para o futuro
-        for col in repeated_pattern.columns:
-            if col != 'Sales':
-                data.loc[repeated_pattern.index, col] = repeated_pattern[col]
-        
-        # Preencher lags/rolling que ainda possam ter NaN com ffill
-        data = data.ffill()
-    
-    # Fallback final
-    data = data.fillna(historical_mean)
+    # Preencher qualquer NaN restante (ffill + mean)
+    data = data.ffill().fillna(data['Sales'].mean())
     
     return data
 
 def train_and_predict(store_id=1, test_days=60):
-    """Treina o modelo XGBoost e retorna modelo + previsão de teste"""
     df = load_and_prepare_data(store_id=store_id)
     df_feat = create_features(df)
     
