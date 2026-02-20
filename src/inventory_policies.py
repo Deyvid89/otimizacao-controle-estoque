@@ -1,9 +1,8 @@
 import numpy as np
 
 def eoq(demand_rate, setup_cost, holding_cost):
-    """Economic Order Quantity with check for invalid values"""
     if holding_cost <= 0 or demand_rate <= 0 or setup_cost <= 0:
-        return 0  # or a large default, e.g. 1e6, to avoid nan in simulation
+        return demand_rate * 30  # fallback razoável: 30 dias de demanda média
     return np.sqrt(2 * demand_rate * setup_cost / holding_cost)
 
 def reorder_point(demand_mean, demand_std, lead_time, service_level_z=1.65):

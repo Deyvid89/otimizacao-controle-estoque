@@ -24,30 +24,26 @@ lead_time = st.sidebar.slider("Lead time (dias)", 0, 14, 7)
 # Cache da previsão
 @st.cache_data
 def get_forecast(store_id, simulation_days):
-    """Carrega modelo pré-treinado + debug para features"""
     model_path = f"models/model_loja_{store_id}.joblib"
-    try:
-        model = joblib.load(model_path)
-    except FileNotFoundError:
-        st.error(f"Modelo não encontrado: {model_path}. Verifique se a pasta 'models/' está no repo.")
-        return pd.Series()
-
+    model = joblib.load(model_path)
+    
     df_full = load_and_prepare_data(store_id=store_id)
     df_feat = create_features(df_full)
-
+    
     last_date = df_feat.index.max()
     future_dates = pd.date_range(last_date + pd.Timedelta(days=1), periods=simulation_days)
     full_df = pd.concat([df_feat, pd.DataFrame({'Sales': [0]*simulation_days}, index=future_dates)])
-
-    # Debug: mostra se as features estão sendo geradas corretamente
-    full_df_debug = create_features(full_df)
-    st.info(f"Debug: Features futuras geradas ({len(full_df_debug)} linhas). Exemplo de lags: {full_df_debug[['lag_1', 'rolling_mean_7']].tail(5)}")
-
-    future_features = full_df_debug.tail(simulation_days).drop('Sales', axis=1)
+    full_df = create_features(full_df)
+    future_features = full_df.tail(simulation_days).drop('Sales', axis=1)
     future_pred = model.predict(future_features)
-
+    
+    # Força valores positivos e adiciona ruído leve
+    future_pred = np.maximum(future_pred, 0)  # evita negativo
+    future_pred += np.random.normal(0, 100, len(future_pred))  # ruído pequeno para variação
+    future_pred = np.maximum(future_pred, 0)
+    
     demand_series = pd.Series(future_pred.round(0).astype(int), index=future_dates)
-
+    
     return demand_series
 
 demand_series = get_forecast(store_id, simulation_days)
