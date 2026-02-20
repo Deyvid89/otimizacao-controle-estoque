@@ -1,7 +1,7 @@
 import pandas as pd
+import numpy as np
 import xgboost as xgb
 from sklearn.metrics import mean_absolute_error
-import numpy as np
 
 def load_and_prepare_data(store_id=1, data_path='data/'):
     train = pd.read_csv(data_path + 'train.csv', low_memory=False, parse_dates=['Date'])
@@ -26,29 +26,29 @@ def create_features(df, lag_days=[1, 7, 14, 30]):
     future_index = data[data['Sales'] == 0].index
     
     if not future_index.empty:
-        # Repetir o padrão dos últimos 30 dias (melhor que 7 para capturar mensal)
-        last_30_sales = historical['Sales'].tail(30).values
-        repeated_sales = np.tile(last_30_sales, (len(future_index) // 30 + 1))[:len(future_index)]
-        data.loc[future_index, 'Sales'] = repeated_sales
+        # Média por dayofweek no histórico (para sazonalidade semanal)
+        mean_by_dayofweek = historical.groupby(historical.index.dayofweek)['Sales'].mean()
         
-        # Calcular lags e rolling com Sales preenchido
-        for lag in lag_days:
-            data[f'lag_{lag}'] = data['Sales'].shift(lag)
+        # Preencher Sales no futuro com média do dayofweek correspondente
+        for idx in future_index:
+            dow = idx.dayofweek
+            data.loc[idx, 'Sales'] = mean_by_dayofweek.get(dow, historical['Sales'].mean())
         
-        data['rolling_mean_7'] = data['Sales'].rolling(7, min_periods=1).mean()
-        data['rolling_mean_30'] = data['Sales'].rolling(30, min_periods=1).mean()
-        
-        # Preencher NaN
-        data = data.ffill().fillna(data['Sales'].mean())
+        # Adicionar ruído para variação
+        historical_std = historical['Sales'].std()
+        noise = np.random.normal(0, historical_std * 0.1, len(future_index))
+        data.loc[future_index, 'Sales'] += noise
+        data.loc[future_index, 'Sales'] = data.loc[future_index, 'Sales'].clip(lower=0)
     
-    else:
-        # Histórico normal
-        for lag in lag_days:
-            data[f'lag_{lag}'] = data['Sales'].shift(lag)
-        
-        data['rolling_mean_7'] = data['Sales'].rolling(7, min_periods=1).mean()
-        data['rolling_mean_30'] = data['Sales'].rolling(30, min_periods=1).mean()
-        data = data.fillna(data['Sales'].mean())
+    # Lags e rolling
+    for lag in lag_days:
+        data[f'lag_{lag}'] = data['Sales'].shift(lag)
+    
+    data['rolling_mean_7'] = data['Sales'].rolling(7, min_periods=1).mean()
+    data['rolling_mean_30'] = data['Sales'].rolling(30, min_periods=1).mean()
+    
+    # Preencher NaN
+    data = data.ffill().fillna(data['Sales'].mean())
     
     return data
 
