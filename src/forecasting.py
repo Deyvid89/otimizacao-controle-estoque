@@ -1,6 +1,7 @@
 import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import mean_absolute_error
+import numpy as np
 
 def load_and_prepare_data(store_id=1, data_path='data/'):
     train = pd.read_csv(data_path + 'train.csv', low_memory=False, parse_dates=['Date'])
