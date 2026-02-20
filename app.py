@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import joblib
+import numpy as np
 
 from src.forecasting import load_and_prepare_data, create_features, train_and_predict
 from src.inventory_policies import eoq, reorder_point
