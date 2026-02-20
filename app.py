@@ -130,16 +130,22 @@ with tab1:
             'Custo Total': [costs_eoq['total_cost'], costs_monthly['total_cost']],
             'Custo Holding Médio/Dia': [costs_eoq['avg_holding'] * holding_cost_day, costs_monthly['avg_holding'] * holding_cost_day],
             'Rupturas Total': [costs_eoq['total_shortage'] * shortage_cost, costs_monthly['total_shortage'] * shortage_cost],
-            'Pedidos': [costs_eoq['total_orders'], costs_monthly['total_orders']]
+            'Pedidos': [costs_eoq['total_orders'], costs_monthly['total_orders']],
+            'Custo Total por Dia': [
+                costs_eoq['total_cost'] / simulation_days,
+                costs_monthly['total_cost'] / simulation_days
+            ]
         })
+
         st.dataframe(
             comparison.style.format({
                 'Custo Total': "{:.2f}",
                 'Custo Holding Médio/Dia': "{:.2f}",
                 'Rupturas Total': "{:.2f}",
-                'Pedidos': "{:.0f}"
+                'Pedidos': "{:.0f}",
+                'Custo Total por Dia': "{:.2f}"
             })
-        )  # Removido height — tabela ajusta automática ao conteúdo (sem linhas vazias)
+        )
 
 with tab2:
     st.subheader("Níveis de Estoque ao Longo do Tempo")
