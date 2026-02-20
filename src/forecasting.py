@@ -14,20 +14,27 @@ def load_and_prepare_data(store_id=1, data_path='data/'):
 
 
 def create_features(df, lag_days=[1, 7, 14, 30]):
-    """Cria features de séries temporais"""
+    """Cria features de séries temporais, preenchendo NaN no futuro"""
     data = df.copy()
     data['dayofweek'] = data.index.dayofweek
     data['month'] = data.index.month
     data['day'] = data.index.day
     data['is_weekend'] = (data['dayofweek'] >= 5).astype(int)
     
+    # Lags e rolling
     for lag in lag_days:
         data[f'lag_{lag}'] = data['Sales'].shift(lag)
     
-    data['rolling_mean_7'] = data['Sales'].rolling(7).mean()
-    data['rolling_mean_30'] = data['Sales'].rolling(30).mean()
+    data['rolling_mean_7'] = data['Sales'].rolling(7, min_periods=1).mean()
+    data['rolling_mean_30'] = data['Sales'].rolling(30, min_periods=1).mean()
     
-    return data.dropna()
+    # Preenche NaN no futuro com o último valor conhecido (forward fill)
+    data = data.ffill()
+    
+    # Preenche qualquer NaN restante com média global (raro)
+    data = data.fillna(data['Sales'].mean())
+    
+    return data
 
 
 def train_and_predict(store_id=1, test_days=60):
