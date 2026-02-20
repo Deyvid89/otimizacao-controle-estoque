@@ -14,7 +14,7 @@ def load_and_prepare_data(store_id=1, data_path='data/'):
 def create_features(df, lag_days=[1, 7, 14, 30]):
     data = df.copy()
     
-    # Features calendário (sempre, mesmo no futuro)
+    # Features calendário (sempre presentes)
     data['dayofweek'] = data.index.dayofweek
     data['month'] = data.index.month
     data['day'] = data.index.day
@@ -22,23 +22,32 @@ def create_features(df, lag_days=[1, 7, 14, 30]):
     
     # Separar histórico e futuro
     historical = data[data['Sales'] > 0].copy()
-    future = data[data['Sales'] == 0].copy()
+    future_index = data[data['Sales'] == 0].index
     
-    if not future.empty:
-        # Repetir os últimos 7 dias de Sales no futuro
+    if not future_index.empty:
+        # Repetir o padrão dos últimos 7 dias de Sales no futuro
         last_7_sales = historical['Sales'].tail(7).values
-        repeated_sales = np.tile(last_7_sales, len(future) // 7 + 1)[:len(future)]
-        data.loc[future.index, 'Sales'] = repeated_sales
+        repeated_sales = np.tile(last_7_sales, (len(future_index) // 7 + 1))[:len(future_index)]
+        data.loc[future_index, 'Sales'] = repeated_sales
+        
+        # Calcular lags e rolling com Sales preenchido
+        for lag in lag_days:
+            data[f'lag_{lag}'] = data['Sales'].shift(lag)
+        
+        data['rolling_mean_7'] = data['Sales'].rolling(7, min_periods=1).mean()
+        data['rolling_mean_30'] = data['Sales'].rolling(30, min_periods=1).mean()
+        
+        # Preencher qualquer NaN restante
+        data = data.ffill().fillna(data['Sales'].mean())
     
-    # Lags e rolling agora com Sales preenchido
-    for lag in lag_days:
-        data[f'lag_{lag}'] = data['Sales'].shift(lag)
-    
-    data['rolling_mean_7'] = data['Sales'].rolling(7, min_periods=1).mean()
-    data['rolling_mean_30'] = data['Sales'].rolling(30, min_periods=1).mean()
-    
-    # Preencher qualquer NaN restante (ffill + mean)
-    data = data.ffill().fillna(data['Sales'].mean())
+    else:
+        # Se não houver futuro, calcular normalmente
+        for lag in lag_days:
+            data[f'lag_{lag}'] = data['Sales'].shift(lag)
+        
+        data['rolling_mean_7'] = data['Sales'].rolling(7, min_periods=1).mean()
+        data['rolling_mean_30'] = data['Sales'].rolling(30, min_periods=1).mean()
+        data = data.fillna(data['Sales'].mean())
     
     return data
 
