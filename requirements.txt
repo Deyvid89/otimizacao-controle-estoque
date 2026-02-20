@@ -1,8 +1,8 @@
-pandas
+pandas==2.2.2
 numpy
 matplotlib
 seaborn
-prophet
+#prophet
 xgboost
 scikit-learn
 streamlit

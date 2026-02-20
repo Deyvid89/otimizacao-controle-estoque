@@ -1,0 +1,6 @@
+[theme]
+base = "dark"
+primaryColor = "#2ca02c"      # verde forte para acentos (combina com o gráfico de demanda)
+backgroundColor = "#0e1117"   # fundo escuro
+secondaryBackgroundColor = "#262730"  # sidebar e cards
+textColor = "#fafafa"         # texto claro
