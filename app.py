@@ -52,6 +52,8 @@ def get_forecast(store_id, simulation_days):
 
 demand_series = get_forecast(store_id, simulation_days)
 
+st.info(f"Demanda média prevista: {demand_series.mean():.2f}")
+
 # Estatísticas e políticas
 demand_mean = demand_series.mean()
 demand_std = demand_series.std()
@@ -67,7 +69,7 @@ costs_eoq, stock_levels_eoq = simulate_inventory(
     holding_cost_per_unit=holding_cost_day, shortage_cost_per_unit=shortage_cost, order_cost=order_cost
 )
 
-# Baseline mensal
+# Baseline mensal - pedido a cada 30 dias
 initial_stock_monthly = monthly_quantity + demand_mean * lead_time
 stock = initial_stock_monthly
 total_holding = total_shortage = total_orders = 0
@@ -81,9 +83,12 @@ for demand in demand_series:
         total_shortage += abs(stock)
         stock = 0
     total_holding += stock
+    
+    # Pedido a cada 30 dias
     if day_count % 30 == 0:
         stock += monthly_quantity
         total_orders += 1
+    
     stock_levels_monthly.append(stock)
 
 costs_monthly = {
